@@ -6,7 +6,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-sys.path.append(str(Path(__file__).resolve().parent))
+sys.path.insert(0,str(Path(__file__).resolve().parent))
 
 from evaluation import evaluate_runs
 from pipeline import build_extractor, process_document
