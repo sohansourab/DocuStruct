@@ -46,7 +46,9 @@ class BaseExtractor(ABC):
 # 1. Rule-based extractor (the working default in this prototype)
 # ---------------------------------------------------------------------------
 
-MONEY_RE = re.compile(r"(?:[$₹€£]|\bRs\.?)\s?(\d{1,3}(?:[,.]\d{3})*(?:\.\d{2})?)")
+MONEY_RE = re.compile(
+    r"(?:(?P<sym>[$₹€£]|\bRs\.?|\bRp\.?)\s?)?(?P<amt>\d[\d,]*(?:\.\d{1,2})?(?:[kK])?)"
+)
 DATE_PATTERNS = [
     (r"\b(\d{4})-(\d{2})-(\d{2})\b", "%Y-%m-%d"),
     (r"\b(\d{1,2})/(\d{1,2})/(\d{2,4})\b", "%m/%d/%Y"),
@@ -55,18 +57,31 @@ DATE_PATTERNS = [
 ]
 TOTAL_KEYWORDS = ["grand total", "total due", "amount due", "total"]
 SUBTOTAL_KEYWORDS = ["subtotal", "sub total", "sub-total"]
-TAX_KEYWORDS = ["tax", "vat", "gst"]
-LINE_ITEM_RE = re.compile(
-    r"^(?P<desc>[A-Za-z][A-Za-z0-9 &/'\-]{2,40}?)\s+"
-    r"(?P<qty>\d{1,3})\s*[xX@]?\s*"
-    r"(?:[$₹€£]|\bRs\.?)?\s?(?P<price>\d{1,4}(?:\.\d{2})?)\s*$"
-)
+TAX_KEYWORDS = ["tax", "vat", "gst", "pb1", "ppn", "sales tax"]
+LINE_ITEM_PATTERNS = [
+    re.compile(
+        r"^\s*(?P<qty>\d+(?:\.\d+)?)\s+(?P<desc>.+?)\s+(?P<price>\d[\d,]*(?:\.\d{1,2})?(?:[kK])?)\s*$"
+    ),
+    re.compile(
+        r"^\s*(?P<desc>[A-Za-z0-9][A-Za-z0-9 &/'\-.]{2,80}?)\s+"
+        r"(?P<qty>\d+(?:\.\d+)?)\s*[xX@]?\s*"
+        r"(?:[$₹€£]|\bRs\.?)?\s?(?P<price>\d[\d,]*(?:\.\d{1,2})?(?:[kK])?)\s*$"
+    ),
+]
 
 
 def _parse_money(s: str) -> Optional[float]:
-    s = s.replace(",", "")
+    raw = s.strip()
     try:
-        return float(s)
+        if raw.lower().endswith("k"):
+            return float(raw[:-1].replace(",", "")) * 1000
+        if "," in raw and "." not in raw:
+            parts = raw.split(",")
+            if len(parts) == 2 and len(parts[1]) == 2:
+                return float(".".join(parts))
+            if len(parts) == 2 and len(parts[1]) == 3:
+                return float("".join(parts))
+        return float(raw.replace(",", ""))
     except ValueError:
         return None
 
@@ -81,9 +96,12 @@ def _find_amount_near_keyword(
         if any(ex in low for ex in exclude_keywords):
             continue
         if any(k in low for k in keywords):
-            m = MONEY_RE.search(line)
-            if m:
-                match = _parse_money(m.group(1))  # keep scanning; last hit wins (e.g. "grand total" after "total")
+            candidates = list(MONEY_RE.finditer(line))
+            if candidates:
+                # The amount is almost always the rightmost number on the line
+                # (label then value); this also makes us robust to stray OCR
+                # noise/digits appearing before the keyword.
+                match = _parse_money(candidates[-1].group("amt"))  # keep scanning; last hit wins
     return match
 
 
@@ -119,16 +137,24 @@ def _find_vendor(lines: List[str]) -> Optional[str]:
 def _find_line_items(lines: List[str]) -> List[LineItem]:
     items = []
     for line in lines:
-        m = LINE_ITEM_RE.match(line.strip())
-        if m:
+        low = line.lower()
+        if any(k in low for k in TOTAL_KEYWORDS + SUBTOTAL_KEYWORDS + TAX_KEYWORDS + ["cash payment", "change"]):
+            continue
+        for pattern in LINE_ITEM_PATTERNS:
+            m = pattern.match(line.strip())
+            if not m:
+                continue
             qty = float(m.group("qty"))
-            price = float(m.group("price"))
+            price = _parse_money(m.group("price"))
+            if price is None:
+                continue
             items.append(LineItem(
                 description=m.group("desc").strip(),
                 quantity=qty,
                 unit_price=price,
                 line_total=round(qty * price, 2),
             ))
+            break
     return items
 
 
@@ -147,9 +173,9 @@ class RuleBasedExtractor(BaseExtractor):
         line_items = _find_line_items(lines)
 
         currency = None
-        cm = re.search(r"[$₹€£]", raw_text)
+        cm = re.search(r"[$₹€£]|\bRp\b", raw_text)
         if cm:
-            currency = {"$": "USD", "₹": "INR", "€": "EUR", "£": "GBP"}.get(cm.group(0))
+            currency = {"$": "USD", "₹": "INR", "€": "EUR", "£": "GBP", "Rp": "IDR"}.get(cm.group(0))
 
         confidence = {
             "vendor": 0.6 if vendor else 0.0,

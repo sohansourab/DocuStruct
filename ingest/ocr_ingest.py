@@ -15,23 +15,38 @@ import hashlib
 import json
 import os
 import time
-import signal
 from pathlib import Path
 from typing import Optional
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 
 import pytesseract
 from PIL import Image, ImageOps, ImageFilter
 
 CACHE_DIR = Path(__file__).resolve().parent.parent / "storage" / "ocr_cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
+CACHE_VERSION = "2026-07-09-preprocess-v2"
 
 
 class OCRTimeout(Exception):
     pass
 
 
-def _timeout_handler(signum, frame):
-    raise OCRTimeout("OCR exceeded soft timeout")
+# One shared worker pool for the soft-timeout mechanism below. Using a thread
+# (via ThreadPoolExecutor.result(timeout=...)) instead of signal.SIGALRM means
+# this works from *any* calling thread and on *any* OS -- SIGALRM only fires
+# in the main thread of the main interpreter, which breaks the moment this
+# pipeline is called from a Streamlit ScriptRunner thread, a web framework
+# worker thread, or Windows (which has no SIGALRM at all).
+_OCR_EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="ocr-worker")
+
+
+def _run_tesseract(path: str) -> str:
+    img = Image.open(path)
+    img = _preprocess(img)
+    # PSM 6 = "assume a single uniform block of text", which is a much
+    # better fit for receipts/invoices than Tesseract's default automatic
+    # page segmentation (which can jumble multi-column text).
+    return pytesseract.image_to_string(img, config="--psm 6")
 
 
 def _file_hash(path: str) -> str:
@@ -43,15 +58,93 @@ def _file_hash(path: str) -> str:
 
 
 def _cache_path(file_hash: str) -> Path:
-    return CACHE_DIR / f"{file_hash}.json"
+    return CACHE_DIR / f"{CACHE_VERSION}-{file_hash}.json"
+
+
+import numpy as np
+
+
+def _upscale_if_small(img: Image.Image, target_min_dim: int = 1600) -> Image.Image:
+    """Low-res phone photos hurt Tesseract's character segmentation. Upscale with
+    high-quality (LANCZOS) resampling if the image's largest dimension is small."""
+    if max(img.size) < target_min_dim:
+        factor = target_min_dim / max(img.size)
+        new_size = (int(img.width * factor), int(img.height * factor))
+        img = img.resize(new_size, Image.LANCZOS)
+    return img
+
+
+def _deskew(img: Image.Image, max_angle: float = 15.0, angle_step: float = 0.5) -> Image.Image:
+    """Correct small rotational skew (a receipt photographed at a slight angle)
+    using the classic projection-profile method: the correctly-rotated angle
+    maximizes the variance of row-wise pixel sums, since horizontally-aligned
+    text lines create sharp peaks/troughs. Pure numpy, no ML model involved.
+    Runs on a small downscaled copy for speed, then applies the found angle to
+    the full-resolution image.
+    """
+    small = img.convert("L")
+    scale = min(1.0, 700 / max(small.size))
+    if scale < 1.0:
+        small = small.resize((max(1, int(small.width * scale)), max(1, int(small.height * scale))))
+    arr = np.array(small, dtype=np.float32)
+    thresh = arr.mean() - 0.5 * arr.std()
+    binary = (arr < thresh).astype(np.uint8) * 255
+    binary_img = Image.fromarray(binary)
+
+    best_angle, best_score = 0.0, -1.0
+    angle = -max_angle
+    while angle <= max_angle:
+        rotated = np.array(binary_img.rotate(angle, expand=False, fillcolor=0))
+        score = float(rotated.sum(axis=1).var())
+        if score > best_score:
+            best_score, best_angle = score, angle
+        angle += angle_step
+
+    if abs(best_angle) > 0.1:
+        return img.rotate(best_angle, expand=True, fillcolor="white", resample=Image.BICUBIC)
+    return img
+
+
+def _binarize(img: Image.Image) -> Image.Image:
+    """Otsu global thresholding: finds the split point that minimizes combined
+    intra-class pixel-intensity variance, turning a photo (with uneven lighting,
+    background texture bleed-through, etc.) into clean black text on white --
+    which is what Tesseract is tuned for. Implemented directly with numpy so no
+    extra CV dependency (e.g. opencv) is required."""
+    arr = np.array(img.convert("L"))
+    hist, _ = np.histogram(arr, bins=256, range=(0, 256))
+    total = arr.size
+    sum_total = np.dot(np.arange(256), hist)
+    sum_b, w_b, max_var, threshold = 0.0, 0.0, 0.0, 127
+    for t in range(256):
+        w_b += hist[t]
+        if w_b == 0:
+            continue
+        w_f = total - w_b
+        if w_f == 0:
+            break
+        sum_b += t * hist[t]
+        m_b = sum_b / w_b
+        m_f = (sum_total - sum_b) / w_f
+        var_between = w_b * w_f * (m_b - m_f) ** 2
+        if var_between > max_var:
+            max_var, threshold = var_between, t
+    binary = (arr > threshold).astype(np.uint8) * 255
+    return Image.fromarray(binary)
 
 
 def _preprocess(img: Image.Image) -> Image.Image:
-    """Cheap, CPU-only normalization to help OCR accuracy: grayscale, autocontrast,
-    light sharpen. No ML model involved -- classic image processing only."""
-    img = ImageOps.grayscale(img)
+    """CPU-only normalization pipeline to help OCR accuracy on real-world phone
+    photos (angled, uneven lighting, textured backgrounds): fix EXIF rotation,
+    upscale if low-res, deskew, denoise, then binarize. No ML model involved."""
+    img = ImageOps.exif_transpose(img)  # phone photos often carry rotation in EXIF only
+    img = img.convert("L")
+    img = _upscale_if_small(img)
+    img = _deskew(img)
     img = ImageOps.autocontrast(img)
+    img = img.filter(ImageFilter.MedianFilter(size=3))  # smooths background texture noise
     img = img.filter(ImageFilter.SHARPEN)
+    img = _binarize(img)
     return img
 
 
@@ -88,18 +181,14 @@ def ocr_image(
     for attempt in range(1, max_retries + 2):  # first try + retries
         attempts = attempt
         try:
-            # Soft timeout guard (POSIX only, fine for this sandbox/most Linux hosts)
-            signal.signal(signal.SIGALRM, _timeout_handler)
-            signal.alarm(timeout_seconds)
+            # Soft timeout guard -- runs the OCR call on a worker thread and
+            # bounds how long we wait for it. Works regardless of which
+            # thread/OS called ocr_image (unlike signal.SIGALRM).
+            future = _OCR_EXECUTOR.submit(_run_tesseract, path)
             try:
-                img = Image.open(path)
-                img = _preprocess(img)
-                # PSM 6 = "assume a single uniform block of text", which is a much
-                # better fit for receipts/invoices than Tesseract's default
-                # automatic page segmentation (which can jumble multi-column text).
-                text = pytesseract.image_to_string(img, config="--psm 6")
-            finally:
-                signal.alarm(0)
+                text = future.result(timeout=timeout_seconds)
+            except FutureTimeoutError:
+                raise OCRTimeout("OCR exceeded soft timeout")
 
             if text.strip():
                 status = "ok"
@@ -127,7 +216,10 @@ def ocr_image(
         "error": last_error,
     }
 
-    # Cache even partial/failed results briefly so repeated hammering on a bad
-    # file doesn't re-burn CPU -- a real system would TTL/evict this.
-    cache_file.write_text(json.dumps(result))
+    # Only cache genuine successes. Caching "failed"/"partial" results forever
+    # means a transient error (or a bug that's since been fixed, e.g. code
+    # calling this from a new thread context) gets replayed on every future
+    # call for that file instead of getting a fresh attempt.
+    if status == "ok":
+        cache_file.write_text(json.dumps(result))
     return result
