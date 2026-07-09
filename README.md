@@ -1,129 +1,127 @@
-# DocuStruct — Offline Receipt/Invoice → Structured Data
+# DocuStruct
 
-A working prototype for the "Local AI" hackathon track: an **offline-first, CPU-only**
-pipeline that turns a photo of a receipt or invoice into validated, queryable
-structured data — no internet connection and no external API calls, ever.
+DocuStruct is an offline-first, CPU-optimized document pipeline that turns receipt and invoice images into structured, queryable data. It is built for the Local AI hackathon brief: no external APIs, no cloud dependencies, and fully local inference and storage.
 
-```
-image (receipt/invoice)
-        │
-        ▼
- ┌─────────────────┐   Tesseract OCR + PIL preprocessing
- │   Ingestion      │   retry + soft timeout + on-disk cache
- └────────┬─────────┘
-          ▼
- ┌─────────────────┐   regex/heuristic field extraction
- │  Transformation  │   (pluggable: swap in a local GGUF SLM
- │  (rule_based /   │    via llama.cpp with zero changes downstream)
- │   local_slm)     │
- └────────┬─────────┘
-          ▼
- ┌─────────────────┐   schema.validate(): required-field checks +
- │   Validation     │   arithmetic cross-checks (subtotal+tax==total)
- └────────┬─────────┘
-          ▼
- ┌─────────────────┐   SQLite: documents + line_items tables
- │    Storage       │   queryable by confidence, vendor, date, etc.
- └─────────────────┘
+## What It Does
+
+DocuStruct processes a receipt image through four stages:
+
+1. OCR ingestion with preprocessing, retry, soft timeout, and on-disk cache.
+2. Structured extraction into the shared schema defined in `schema.py`.
+3. Validation of required fields and arithmetic consistency.
+4. SQLite persistence for browsing and analytics.
+
+## Architecture
+
+```mermaid
+flowchart TD
+    A[Receipt / invoice image] --> B[OCR ingestion]
+    B --> C[Text normalization]
+    C --> D[Structured extraction]
+    D --> E[Schema validation]
+    E --> F[SQLite storage]
+    F --> G[Analytics / scorecard]
 ```
 
-## Why this idea
+## Current Status
 
-It maps cleanly onto every constraint in the brief:
+The following is implemented and working end to end:
 
-| Requirement | How DocuStruct satisfies it |
-|---|---|
-| Offline-first | Tesseract (system binary) + pure Python. Zero network calls anywhere in the runtime path. |
-| CPU-first | No GPU dependency. Rule-based extractor runs in single-digit milliseconds; the pluggable SLM path targets quantized 0.5–1B GGUF models sized for CPU inference. |
-| Multi-modal ingestion | Images → OCR (this prototype). Same `StructuredDocument` contract would accept audio via Whisper.cpp or text/docs directly, without touching extraction or storage. |
-| Local SLM for schema mapping | `extract/extractor.py` has a working `LocalLLMExtractor` wired for `llama-cpp-python`; swap it in for `RuleBasedExtractor` with one line once you have a GGUF file. |
-| SQLite storage | `storage/db.py` — relational schema: `documents` + `line_items`. |
-| Graceful failure/caching | `ingest/ocr_ingest.py` — file-hash cache, retry with backoff, soft timeout via `SIGALRM`. |
+- Offline OCR to structured output pipeline.
+- Streamlit UI with upload, camera capture, database explorer, and analytics.
+- Shared CLI and UI pipeline logic.
+- OCR cache versioning to avoid stale results.
+- Rule-based extraction with support for messy receipt formats.
+- Optional local `llama-cpp-python` extractor for a GGUF model.
+- Repeatable scoring for bundled sample receipts.
+- Tests for OCR cache behavior, extraction, storage, evaluation, and pipeline flow.
 
-## Validation criteria, addressed directly
+## What to Upload
 
-1. **Model performance** — `schema.validate()` cross-checks extracted numbers
-   (does `subtotal + tax == total`? does `qty * unit_price == line_total`?) so
-   extraction errors are caught automatically, not just eyeballed.
-2. **Resource efficiency** — `app.py --report` prints wall-clock time and peak
-   memory (via `tracemalloc`) per document. Current numbers on this prototype:
-   ~350ms and <1MB peak per receipt, entirely on CPU.
-3. **Offline resiliency** — no code path reaches the network. Retry/backoff and
-   caching absorb slow or flaky OCR without crashing the pipeline.
-4. **Schema alignment** — every extractor, regardless of implementation, must
-   emit a `StructuredDocument` (see `schema.py`), so the field-mapping contract
-   is enforced structurally, not just by convention.
+For the best demo and for real scoring, start with the bundled sample images:
 
-## Running it
+- `samples/receipt_cafe.png`
+- `samples/receipt_grocery.png`
+- `samples/receipt_hardware.png`
+
+You can also upload real receipt or invoice images in `PNG`, `JPG`, `JPEG`, or `WEBP` format. Full-frame, well-lit photos work best.
+
+## Setup
 
 ```bash
-# from the docustruct/ directory
-python3 samples/make_samples.py        # generate 3 synthetic sample receipts
-python3 app.py samples/*.png --report  # run the full pipeline + efficiency report
+cd /path/to/docustruct
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-Each run prints the structured JSON per document and stores it in
-`storage/docustruct.db`. Query it directly:
+## Run
 
-```python
-from storage import db
-db.query_documents(min_confidence=0.5)   # e.g. filter low-confidence extractions for review
-```
-
-## Swapping in a real local SLM
-
-The rule-based extractor is intentionally simple so the prototype runs
-anywhere with zero downloads. For messier real-world documents (handwriting,
-unusual layouts, multiple languages), swap it out:
+CLI demo:
 
 ```bash
-pip install llama-cpp-python
-# download any small instruct GGUF, e.g. Qwen2.5-0.5B-Instruct-GGUF
+python app.py samples/*.png --report
 ```
 
-```python
-# app.py
-from extract.extractor import LocalLLMExtractor
-extractor = LocalLLMExtractor(model_path="./models/qwen2.5-0.5b-instruct-q4_k_m.gguf")
-```
-
-Nothing else changes — ingestion, validation, and storage are extractor-agnostic.
-
-**Verified:** `llama-cpp-python==0.3.33` was built and installed from source in a clean
-CPU-only environment (no prebuilt wheel available, so this compiles `llama.cpp` — takes
-a few minutes). `LocalLLMExtractor` was then instantiated and confirmed to reach real
-`llama_cpp.Llama()` model-loading code (it correctly raised `Model path does not exist`
-for a placeholder path). The only remaining step to go end-to-end is pointing it at an
-actual `.gguf` file:
+Streamlit UI:
 
 ```bash
-pip install huggingface_hub
-huggingface-cli download Qwen/Qwen2.5-0.5B-Instruct-GGUF \
-  qwen2.5-0.5b-instruct-q4_k_m.gguf --local-dir ./models
+streamlit run streamlit_app.py
 ```
+
+If you want the compatibility entrypoint used by older commands, `streamlit.py` forwards to the same app.
+
+## Evaluation and Metrics
+
+The analytics page and CLI report surface real numbers from the sample set:
+
+- Field accuracy
+- Line-item accuracy
+- Validation pass rate
+- Offline success rate
+- Latency
+- Peak memory
+- Overall score
+
+These numbers are grounded in the bundled sample receipts, which have known expected outputs.
+
+## Local Model Support
+
+DocuStruct includes a local SLM integration path through `llama-cpp-python`. To use it, point the extractor at a local `.gguf` file:
 
 ```python
 from extract.extractor import LocalLLMExtractor
-extractor = LocalLLMExtractor(model_path="./models/qwen2.5-0.5b-instruct-q4_k_m.gguf")
+extractor = LocalLLMExtractor(model_path="./models/model.gguf")
 ```
 
-## Known limitations (honest, hackathon-scope)
+This keeps the rest of the pipeline unchanged.
 
-- Regex-based extraction is brittle to layout variation; that's exactly the
-  gap `LocalLLMExtractor` is designed to close.
-- OCR accuracy depends on Tesseract's default English model; for CJK/other
-  scripts you'd swap Tesseract language packs (still fully offline).
-- `SIGALRM`-based timeout is POSIX-only; a Windows deployment would need a
-  thread-based timeout instead.
+## Future Scope
 
-## File layout
+Planned next steps for the project:
 
-```
+- Add PDF ingestion in addition to images.
+- Improve OCR handling for heavily skewed or low-light receipts.
+- Add more robust line-item parsing for retail receipts with complex layouts.
+- Support multilingual OCR and extraction.
+- Extend the scoring harness with larger labeled benchmark sets.
+- Add export formats such as CSV and JSONL.
+- Add a review workflow for low-confidence extractions.
+- Expand the local model path with better prompt templates and structured decoding.
+
+## Repository Layout
+
+```text
 docustruct/
-├── app.py                 # orchestrator/CLI
-├── schema.py               # StructuredDocument contract + validation
-├── ingest/ocr_ingest.py    # Tesseract OCR + cache + retry/timeout
-├── extract/extractor.py    # RuleBasedExtractor + LocalLLMExtractor
-├── storage/db.py           # SQLite persistence
-└── samples/make_samples.py # synthetic receipt generator for demo/testing
+├── app.py
+├── evaluation.py
+├── extract/
+├── ingest/
+├── pipeline.py
+├── schema.py
+├── storage/
+├── streamlit_app.py
+├── streamlit.py
+├── tests/
+└── samples/
 ```
