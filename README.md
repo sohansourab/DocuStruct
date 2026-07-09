@@ -13,15 +13,7 @@ DocuStruct processes a receipt image through four stages:
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    A[Receipt / invoice image] --> B[OCR ingestion]
-    B --> C[Text normalization]
-    C --> D[Structured extraction]
-    D --> E[Schema validation]
-    E --> F[SQLite storage]
-    F --> G[Analytics / scorecard]
-```
+![docuStruct System Architecture](imglink)
 
 ## Current Status
 
