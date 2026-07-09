@@ -13,7 +13,7 @@ DocuStruct processes a receipt image through four stages:
 
 ## Architecture
 
-![docuStruct System Architecture](imglink)
+![docuStruct System Architecture](https://code.swecha.org/Sohansourab27/docustruct/-/raw/main/diagram-export-7-9-2026-3_08_54-PM.png)
 
 ## Current Status
 
