@@ -50,7 +50,9 @@ MONEY_RE = re.compile(
 DATE_PATTERNS = [
     (r"\b(\d{4})-(\d{2})-(\d{2})\b", "%Y-%m-%d"),
     (r"\b(\d{1,2})/(\d{1,2})/(\d{2,4})\b", "%m/%d/%Y"),
+    (r"\b(\d{1,2})/(\d{1,2})/(\d{2,4})\b", "%d/%m/%Y"),
     (r"\b(\d{1,2})-(\d{1,2})-(\d{2,4})\b", "%m-%d-%Y"),
+    (r"\b(\d{1,2})-(\d{1,2})-(\d{2,4})\b", "%d-%m-%Y"),
     (
         r"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})\b",
         None,
