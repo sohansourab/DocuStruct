@@ -1,0 +1,9 @@
+.cache/
+.venv/
+venv/
+.git/
+storage/ocr_cache/
+uploads/
+*.pyc
+__pycache__/
+node_modules/

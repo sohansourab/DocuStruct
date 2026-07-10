@@ -1,0 +1,28 @@
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [".venv", "venv", ".git", ".cache", "storage/ocr_cache", "uploads"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = []
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+exclude = ["\\.venv/", "venv/", "tests/", "samples/"]
+
+[tool.bandit]
+exclude_dirs = [".venv", "venv", "tests", "storage/ocr_cache", "uploads"]
+
+[tool.vulture]
+min_confidence = 80
+exclude = [".venv/", "venv/", "tests/"]
+paths = ["."]
+
+[tool.pytest.ini_options]
+addopts = "--cov=. --cov-report=term-missing --cov-fail-under=50"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+omit = ["tests/*", ".venv/*", "venv/*", "samples/*"]

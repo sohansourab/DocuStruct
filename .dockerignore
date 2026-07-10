@@ -1,0 +1,15 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.git/
+.gitlab-ci.yml
+storage/ocr_cache/
+storage/docustruct.db
+uploads/
+.env
+.cache/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
