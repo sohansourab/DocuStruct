@@ -3,4 +3,4 @@ __pycache__/
 *.pyc
 storage/ocr_cache/
 storage/docustruct.db
-uploads/
+uploads/    
