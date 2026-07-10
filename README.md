@@ -38,30 +38,44 @@ For the best demo and for real scoring, start with the bundled sample images:
 
 You can also upload real receipt or invoice images in `PNG`, `JPG`, `JPEG`, or `WEBP` format. Full-frame, well-lit photos work best.
 
-## Setup
+## Installation
+
+Install the project locally in a Python virtual environment:
 
 ```bash
 cd /path/to/docustruct
 python3 -m venv .venv
 source .venv/bin/activate
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-## Run
+## Usage
 
-CLI demo:
+Run the CLI demo to process sample receipt images and generate a report:
 
 ```bash
 python app.py samples/*.png --report
 ```
 
-Streamlit UI:
+Run the Streamlit UI for an interactive local demo:
 
 ```bash
 streamlit run streamlit_app.py
 ```
 
-If you want the compatibility entrypoint used by older commands, `streamlit.py` forwards to the same app.
+The repository also includes a legacy compatibility entrypoint: `streamlit.py` forwards to the same app.
+
+## Contributing
+
+Contributions are welcome. See `CONTRIBUTING.md` for:
+
+- development setup and environment requirements
+- code style and formatting expectations
+- testing and pre-commit hook usage
+- how to submit merge requests
+
+If you are improving the OCR or extraction pipeline, add new feature specs under `specs/<feature-name>/` with `spec.md`, `plan.md`, and `tasks.md`.
 
 ## Evaluation and Metrics
 
