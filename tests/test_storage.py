@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from schema import LineItem, StructuredDocument
 from storage import db
 

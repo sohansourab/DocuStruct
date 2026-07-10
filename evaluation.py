@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from pathlib import Path
 from statistics import mean
-from typing import Iterable
 
 from schema import LineItem, StructuredDocument
-
 
 SAMPLE_GROUND_TRUTH = {
     "receipt_cafe.png": {
@@ -69,14 +68,19 @@ def _scalar_score(actual, expected) -> float:
         return 1.0
     if expected is None or actual is None:
         return 0.0
-    if isinstance(expected, (int, float)) or isinstance(actual, (int, float)):
+    if isinstance(expected, int | float) or isinstance(actual, int | float):
         return 1.0 if abs(_norm_number(actual) - _norm_number(expected)) <= 0.05 else 0.0
     return 1.0 if _norm_text(actual) == _norm_text(expected) else 0.0
 
 
 def _line_item_signature(item) -> tuple:
     if isinstance(item, LineItem):
-        return (_norm_text(item.description), _norm_number(item.quantity), _norm_number(item.unit_price), _norm_number(item.line_total))
+        return (
+            _norm_text(item.description),
+            _norm_number(item.quantity),
+            _norm_number(item.unit_price),
+            _norm_number(item.line_total),
+        )
     return (
         _norm_text(item.get("description")),
         _norm_number(item.get("quantity")),
@@ -87,7 +91,9 @@ def _line_item_signature(item) -> tuple:
 
 def score_document(doc: StructuredDocument, expected: dict) -> dict:
     scalar_fields = ["vendor", "document_date", "currency", "subtotal", "tax", "total"]
-    field_scores = {field: _scalar_score(getattr(doc, field), expected.get(field)) for field in scalar_fields}
+    field_scores = {
+        field: _scalar_score(getattr(doc, field), expected.get(field)) for field in scalar_fields
+    }
 
     expected_items = [_line_item_signature(item) for item in expected.get("line_items", [])]
     actual_items = [_line_item_signature(item) for item in doc.line_items]
@@ -124,17 +130,32 @@ def evaluate_runs(runs: Iterable[dict]) -> dict:
         if name in SAMPLE_GROUND_TRUTH:
             known_scores.append(score_document(doc, SAMPLE_GROUND_TRUTH[name]))
 
-    validation_pass_rate = sum(not run.get("validation_issues") for run in runs) / len(runs) if runs else 0.0
-    offline_success_rate = sum(1 for run in runs if run.get("offline_success")) / len(runs) if runs else 0.0
+    validation_pass_rate = (
+        sum(not run.get("validation_issues") for run in runs) / len(runs) if runs else 0.0
+    )
+    offline_success_rate = (
+        sum(1 for run in runs if run.get("offline_success")) / len(runs) if runs else 0.0
+    )
     avg_latency_ms = mean(run.get("total_wall_ms", 0.0) for run in runs) if runs else 0.0
     avg_peak_kb = mean(run.get("peak_memory_kb", 0.0) for run in runs) if runs else 0.0
     avg_confidence = mean(run.get("overall_confidence", 0.0) for run in runs) if runs else 0.0
     field_accuracy = mean(item["field_accuracy"] for item in known_scores) if known_scores else None
-    line_item_accuracy = mean(item["line_item_accuracy"] for item in known_scores) if known_scores else None
+    line_item_accuracy = (
+        mean(item["line_item_accuracy"] for item in known_scores) if known_scores else None
+    )
 
     resource_score = max(0.0, 1.0 - (avg_latency_ms / 2500.0) - (avg_peak_kb / 2048.0))
     quality_score = field_accuracy if field_accuracy is not None else avg_confidence
-    overall_score = round(100 * ((quality_score * 0.55) + (validation_pass_rate * 0.2) + (offline_success_rate * 0.15) + (resource_score * 0.1)), 1)
+    overall_score = round(
+        100
+        * (
+            (quality_score * 0.55)
+            + (validation_pass_rate * 0.2)
+            + (offline_success_rate * 0.15)
+            + (resource_score * 0.1)
+        ),
+        1,
+    )
 
     return {
         "known_cases": len(known_scores),

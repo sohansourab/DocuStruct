@@ -28,5 +28,11 @@ Total 70,000
     assert doc.total == 70000.0
     assert doc.subtotal == 63636.0
     assert doc.tax == 6364.0
-    assert any(item.description == "LG BLACK SAKURA" and item.unit_price == 59091.0 for item in doc.line_items)
-    assert any(item.description == "MINERAL WATER (bundling)" and item.unit_price == 5000.0 for item in doc.line_items)
+    assert any(
+        item.description == "LG BLACK SAKURA" and item.unit_price == 59091.0
+        for item in doc.line_items
+    )
+    assert any(
+        item.description == "MINERAL WATER (bundling)" and item.unit_price == 5000.0
+        for item in doc.line_items
+    )

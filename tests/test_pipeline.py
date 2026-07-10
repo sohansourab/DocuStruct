@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-from pipeline import process_document
 from extract.extractor import RuleBasedExtractor
+from pipeline import process_document
 from storage import db
 
 
 def test_process_document_runs_end_to_end(tmp_path, monkeypatch):
     monkeypatch.setattr(db, "DB_PATH", tmp_path / "docustruct.db")
     db.init_db()
-
-    from pipeline import ocr_image
 
     def fake_ocr(path, use_cache=True):
         return {
@@ -35,7 +33,9 @@ Total      $18.80
 
     monkeypatch.setattr("pipeline.ocr_image", fake_ocr)
 
-    result = process_document("/tmp/receipt_cafe.png", RuleBasedExtractor(), source_label="receipt_cafe.png")
+    result = process_document(
+        tmp_path / "receipt_cafe.png", RuleBasedExtractor(), source_label="receipt_cafe.png"
+    )
 
     assert result["error"] is None
     assert result["doc_id"] == 1

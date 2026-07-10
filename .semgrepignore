@@ -2,8 +2,8 @@
 .venv/
 venv/
 .git/
-storage/ocr_cache/
-uploads/
-*.pyc
-__pycache__/
 node_modules/
+dist/
+build/
+*.egg-info/
+__pycache__/

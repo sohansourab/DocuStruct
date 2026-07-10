@@ -13,14 +13,14 @@ caching when input processing latency occurs." We implement:
 
 import hashlib
 import json
-import os
 import time
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from pathlib import Path
-from typing import Optional
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 
+import numpy as np
 import pytesseract
-from PIL import Image, ImageOps, ImageFilter
+from PIL import Image, ImageFilter, ImageOps
 
 CACHE_DIR = Path(__file__).resolve().parent.parent / "storage" / "ocr_cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -59,9 +59,6 @@ def _file_hash(path: str) -> str:
 
 def _cache_path(file_hash: str) -> Path:
     return CACHE_DIR / f"{CACHE_VERSION}-{file_hash}.json"
-
-
-import numpy as np
 
 
 def _upscale_if_small(img: Image.Image, target_min_dim: int = 1600) -> Image.Image:
@@ -187,8 +184,8 @@ def ocr_image(
             future = _OCR_EXECUTOR.submit(_run_tesseract, path)
             try:
                 text = future.result(timeout=timeout_seconds)
-            except FutureTimeoutError:
-                raise OCRTimeout("OCR exceeded soft timeout")
+            except FutureTimeoutError as e:
+                raise OCRTimeout("OCR exceeded soft timeout") from e
 
             if text.strip():
                 status = "ok"

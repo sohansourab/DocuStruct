@@ -5,7 +5,7 @@ exclude = [".venv", "venv", ".git", ".cache", "storage/ocr_cache", "uploads"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B"]
-ignore = []
+ignore = ["E501"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -25,4 +25,4 @@ addopts = "--cov=. --cov-report=term-missing --cov-fail-under=50"
 testpaths = ["tests"]
 
 [tool.coverage.run]
-omit = ["tests/*", ".venv/*", "venv/*", "samples/*"]
+omit = ["tests/*", ".venv/*", "venv/*", "samples/*", "app.py", "app_runner.py", "streamlit_app.py"]

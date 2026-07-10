@@ -9,34 +9,33 @@ so the rest of the pipeline (validation, storage, querying) never has to know
 which extraction strategy produced the data.
 """
 
-from dataclasses import dataclass, field, asdict
-from typing import List, Optional
 import json
+from dataclasses import asdict, dataclass, field
 
 
 @dataclass
 class LineItem:
     description: str
-    quantity: Optional[float] = None
-    unit_price: Optional[float] = None
-    line_total: Optional[float] = None
+    quantity: float | None = None
+    unit_price: float | None = None
+    line_total: float | None = None
 
 
 @dataclass
 class StructuredDocument:
     # Core fields
-    vendor: Optional[str] = None
-    document_date: Optional[str] = None          # ISO 8601 (YYYY-MM-DD) where possible
-    currency: Optional[str] = None
-    subtotal: Optional[float] = None
-    tax: Optional[float] = None
-    total: Optional[float] = None
-    line_items: List[LineItem] = field(default_factory=list)
+    vendor: str | None = None
+    document_date: str | None = None  # ISO 8601 (YYYY-MM-DD) where possible
+    currency: str | None = None
+    subtotal: float | None = None
+    tax: float | None = None
+    total: float | None = None
+    line_items: list[LineItem] = field(default_factory=list)
 
     # Provenance / trust metadata -- required by the "Model Performance" and
     # "Data Schema Alignment" validation criteria in the hackathon rubric.
     raw_text: str = ""
-    extractor_used: str = ""                     # "rule_based" | "local_slm"
+    extractor_used: str = ""  # "rule_based" | "local_slm"
     field_confidence: dict = field(default_factory=dict)  # per-field 0-1 score
     overall_confidence: float = 0.0
     source_file: str = ""
@@ -46,7 +45,7 @@ class StructuredDocument:
         d = asdict(self)
         return json.dumps(d, indent=2, ensure_ascii=False)
 
-    def validate(self) -> List[str]:
+    def validate(self) -> list[str]:
         """Cheap schema-alignment check. Returns a list of problems (empty = clean)."""
         problems = []
         if not self.vendor:

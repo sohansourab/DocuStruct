@@ -6,8 +6,9 @@ DocuStruct pipeline (OCR -> extraction -> storage) can be demoed offline
 without needing real scanned receipts.
 """
 
-from PIL import Image, ImageDraw, ImageFont
 from pathlib import Path
+
+from PIL import Image, ImageDraw, ImageFont
 
 OUT_DIR = Path(__file__).resolve().parent
 
@@ -82,5 +83,6 @@ def make_receipt_image(lines, out_path):
 
 if __name__ == "__main__":
     for r in RECEIPTS:
-        make_receipt_image(r["lines"], OUT_DIR / r["filename"])
-        print(f"created {r['filename']}")
+        filename = str(r["filename"])
+        make_receipt_image(r["lines"], OUT_DIR / filename)
+        print(f"created {filename}")

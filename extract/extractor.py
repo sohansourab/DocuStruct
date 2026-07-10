@@ -23,23 +23,21 @@ EXTRACTOR = LocalLLMExtractor(model_path=...).
 """
 
 import re
+import sys
 import time
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import List, Optional
-
-import sys
 from pathlib import Path
+
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from schema import StructuredDocument, LineItem
+from schema import LineItem, StructuredDocument
 
 
 class BaseExtractor(ABC):
     name = "base"
 
     @abstractmethod
-    def extract(self, raw_text: str) -> StructuredDocument:
-        ...
+    def extract(self, raw_text: str) -> StructuredDocument: ...
 
 
 # ---------------------------------------------------------------------------
@@ -53,7 +51,10 @@ DATE_PATTERNS = [
     (r"\b(\d{4})-(\d{2})-(\d{2})\b", "%Y-%m-%d"),
     (r"\b(\d{1,2})/(\d{1,2})/(\d{2,4})\b", "%m/%d/%Y"),
     (r"\b(\d{1,2})-(\d{1,2})-(\d{2,4})\b", "%m-%d-%Y"),
-    (r"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})\b", None),
+    (
+        r"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})\b",
+        None,
+    ),
 ]
 TOTAL_KEYWORDS = ["grand total", "total due", "amount due", "total"]
 SUBTOTAL_KEYWORDS = ["subtotal", "sub total", "sub-total"]
@@ -70,7 +71,7 @@ LINE_ITEM_PATTERNS = [
 ]
 
 
-def _parse_money(s: str) -> Optional[float]:
+def _parse_money(s: str) -> float | None:
     raw = s.strip()
     try:
         if raw.lower().endswith("k"):
@@ -87,8 +88,8 @@ def _parse_money(s: str) -> Optional[float]:
 
 
 def _find_amount_near_keyword(
-    lines: List[str], keywords: List[str], exclude_keywords: Optional[List[str]] = None
-) -> Optional[float]:
+    lines: list[str], keywords: list[str], exclude_keywords: list[str] | None = None
+) -> float | None:
     exclude_keywords = exclude_keywords or []
     match = None
     for line in lines:
@@ -105,7 +106,7 @@ def _find_amount_near_keyword(
     return match
 
 
-def _find_date(text: str) -> Optional[str]:
+def _find_date(text: str) -> str | None:
     for pattern, fmt in DATE_PATTERNS:
         m = re.search(pattern, text)
         if not m:
@@ -121,7 +122,7 @@ def _find_date(text: str) -> Optional[str]:
     return None
 
 
-def _find_vendor(lines: List[str]) -> Optional[str]:
+def _find_vendor(lines: list[str]) -> str | None:
     # Heuristic: vendor name is usually one of the first non-empty,
     # mostly-alphabetic lines at the top of a receipt.
     for line in lines[:5]:
@@ -134,11 +135,14 @@ def _find_vendor(lines: List[str]) -> Optional[str]:
     return None
 
 
-def _find_line_items(lines: List[str]) -> List[LineItem]:
+def _find_line_items(lines: list[str]) -> list[LineItem]:
     items = []
     for line in lines:
         low = line.lower()
-        if any(k in low for k in TOTAL_KEYWORDS + SUBTOTAL_KEYWORDS + TAX_KEYWORDS + ["cash payment", "change"]):
+        if any(
+            k in low
+            for k in TOTAL_KEYWORDS + SUBTOTAL_KEYWORDS + TAX_KEYWORDS + ["cash payment", "change"]
+        ):
             continue
         for pattern in LINE_ITEM_PATTERNS:
             m = pattern.match(line.strip())
@@ -148,12 +152,14 @@ def _find_line_items(lines: List[str]) -> List[LineItem]:
             price = _parse_money(m.group("price"))
             if price is None:
                 continue
-            items.append(LineItem(
-                description=m.group("desc").strip(),
-                quantity=qty,
-                unit_price=price,
-                line_total=round(qty * price, 2),
-            ))
+            items.append(
+                LineItem(
+                    description=m.group("desc").strip(),
+                    quantity=qty,
+                    unit_price=price,
+                    line_total=round(qty * price, 2),
+                )
+            )
             break
     return items
 
@@ -163,7 +169,7 @@ class RuleBasedExtractor(BaseExtractor):
 
     def extract(self, raw_text: str) -> StructuredDocument:
         start = time.time()
-        lines = [l for l in raw_text.splitlines() if l.strip()]
+        lines = [line for line in raw_text.splitlines() if line.strip()]
 
         vendor = _find_vendor(lines)
         date = _find_date(raw_text)
@@ -175,7 +181,9 @@ class RuleBasedExtractor(BaseExtractor):
         currency = None
         cm = re.search(r"[$₹€£]|\bRp\b", raw_text)
         if cm:
-            currency = {"$": "USD", "₹": "INR", "€": "EUR", "£": "GBP", "Rp": "IDR"}.get(cm.group(0))
+            currency = {"$": "USD", "₹": "INR", "€": "EUR", "£": "GBP", "Rp": "IDR"}.get(
+                cm.group(0)
+            )
 
         confidence = {
             "vendor": 0.6 if vendor else 0.0,
@@ -185,7 +193,6 @@ class RuleBasedExtractor(BaseExtractor):
             "tax": 0.6 if tax is not None else 0.0,
             "line_items": min(0.9, 0.2 * len(line_items)) if line_items else 0.0,
         }
-        present = [v for v in confidence.values() if v > 0]
         overall = round(sum(confidence.values()) / len(confidence), 3)
 
         doc = StructuredDocument(
@@ -235,7 +242,7 @@ JSON:"""
 class LocalLLMExtractor(BaseExtractor):
     name = "local_slm"
 
-    def __init__(self, model_path: str, n_ctx: int = 2048, n_threads: Optional[int] = None):
+    def __init__(self, model_path: str, n_ctx: int = 2048, n_threads: int | None = None):
         try:
             from llama_cpp import Llama  # local import: optional dependency
         except ImportError as e:
@@ -250,6 +257,7 @@ class LocalLLMExtractor(BaseExtractor):
 
     def extract(self, raw_text: str) -> StructuredDocument:
         import json as _json
+
         start = time.time()
         prompt = EXTRACTION_PROMPT.format(text=raw_text[:3000])
         out = self.llm(prompt, max_tokens=512, temperature=0.0, stop=["```"])
@@ -261,7 +269,8 @@ class LocalLLMExtractor(BaseExtractor):
             data = {}
 
         line_items = [
-            LineItem(**li) for li in data.get("line_items", [])
+            LineItem(**li)
+            for li in data.get("line_items", [])
             if isinstance(li, dict) and "description" in li
         ]
         doc = StructuredDocument(

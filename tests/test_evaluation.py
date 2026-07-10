@@ -4,7 +4,7 @@ from evaluation import evaluate_runs
 from schema import LineItem, StructuredDocument
 
 
-def test_evaluation_reports_real_scores_for_known_sample():
+def test_evaluation_reports_real_scores_for_known_sample(tmp_path):
     doc = StructuredDocument(
         vendor="Blue Bottle Coffee",
         document_date="2026-06-14",
@@ -19,18 +19,20 @@ def test_evaluation_reports_real_scores_for_known_sample():
         ],
         overall_confidence=0.9,
     )
-    metrics = evaluate_runs([
-        {
-            "file": "/tmp/receipt_cafe.png",
-            "source_label": "receipt_cafe.png",
-            "structured": doc,
-            "validation_issues": [],
-            "offline_success": True,
-            "total_wall_ms": 10.0,
-            "peak_memory_kb": 128.0,
-            "overall_confidence": 0.9,
-        }
-    ])
+    metrics = evaluate_runs(
+        [
+            {
+                "file": str(tmp_path / "receipt_cafe.png"),
+                "source_label": "receipt_cafe.png",
+                "structured": doc,
+                "validation_issues": [],
+                "offline_success": True,
+                "total_wall_ms": 10.0,
+                "peak_memory_kb": 128.0,
+                "overall_confidence": 0.9,
+            }
+        ]
+    )
 
     assert metrics["known_cases"] == 1
     assert metrics["field_accuracy"] == 1.0

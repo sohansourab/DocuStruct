@@ -5,14 +5,13 @@ from __future__ import annotations
 import time
 import tracemalloc
 from pathlib import Path
-from typing import Optional
 
 from extract.extractor import LocalLLMExtractor, RuleBasedExtractor
 from ingest.ocr_ingest import ocr_image
 from storage import db
 
 
-def build_extractor(kind: str = "rule_based", model_path: Optional[str] = None):
+def build_extractor(kind: str = "rule_based", model_path: str | None = None):
     if kind == "local_slm":
         if not model_path:
             raise ValueError("model_path is required for local_slm")
@@ -23,7 +22,7 @@ def build_extractor(kind: str = "rule_based", model_path: Optional[str] = None):
 def process_document(
     path: str,
     extractor,
-    source_label: Optional[str] = None,
+    source_label: str | None = None,
     use_cache: bool = True,
     persist: bool = True,
 ) -> dict:
