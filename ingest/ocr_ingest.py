@@ -98,7 +98,9 @@ def _deskew(img: Image.Image, max_angle: float = 15.0, angle_step: float = 0.5) 
         angle += angle_step
 
     if abs(best_angle) > 0.1:
-        return img.rotate(best_angle, expand=True, fillcolor="white", resample=Image.Resampling.BICUBIC)
+        return img.rotate(
+            best_angle, expand=True, fillcolor="white", resample=Image.Resampling.BICUBIC
+        )
     return img
 
 
