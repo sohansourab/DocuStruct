@@ -40,6 +40,30 @@ pytest --cov
 
 Stage files with `git add` before committing — pre-commit hooks only scan staged files.
 
+## Skill Routing
+
+This repository uses skill-specific guidance for AI agents.
+
+- The root `AGENTS.md` file describes high-level repo goals and constraints.
+- `skills.md` explains available skills and how to route requests to them.
+- `.agents/skills/developing-with-streamlit/SKILL.md` is the Streamlit skill.
+
+### Use the Streamlit skill when:
+
+- the task involves `streamlit` or `st.` usage
+- the task is editing or debugging `streamlit_app.py`
+- the task is about app layout, widgets, themes, or UI behavior
+- the task is building or packaging Streamlit components
+
+### When to stay at the root level
+
+Use `AGENTS.md` for:
+
+- project-wide architectural changes
+- offline/CPU-only dependency decisions
+- build, CI, and packaging concerns
+- requirements and environment constraints
+
 ## Testing
 
 Tests live in `tests/` and cover OCR caching, extraction, storage, evaluation, and the

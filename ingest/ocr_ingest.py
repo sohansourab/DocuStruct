@@ -41,7 +41,7 @@ _OCR_EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="ocr-worker
 
 
 def _run_tesseract(path: str) -> str:
-    img = Image.open(path)
+    img: Image.Image = Image.open(path)
     img = _preprocess(img)
     # PSM 6 = "assume a single uniform block of text", which is a much
     # better fit for receipts/invoices than Tesseract's default automatic
@@ -67,7 +67,7 @@ def _upscale_if_small(img: Image.Image, target_min_dim: int = 1600) -> Image.Ima
     if max(img.size) < target_min_dim:
         factor = target_min_dim / max(img.size)
         new_size = (int(img.width * factor), int(img.height * factor))
-        img = img.resize(new_size, Image.LANCZOS)
+        img = img.resize(new_size, Image.Resampling.LANCZOS)
     return img
 
 
@@ -98,7 +98,7 @@ def _deskew(img: Image.Image, max_angle: float = 15.0, angle_step: float = 0.5) 
         angle += angle_step
 
     if abs(best_angle) > 0.1:
-        return img.rotate(best_angle, expand=True, fillcolor="white", resample=Image.BICUBIC)
+        return img.rotate(best_angle, expand=True, fillcolor="white", resample=Image.Resampling.BICUBIC)
     return img
 
 
