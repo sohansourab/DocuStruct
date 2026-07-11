@@ -1,3 +1,23 @@
+<div align="center">
+
+<img src="https://code.swecha.org/Sohansourab27/docustruct/-/raw/main/main.jpeg" width="500" alt="DocuStruct Logo" />
+
+<br/>
+
+<p><em>Offline-first AI document pipeline for extracting structured data from receipts and invoices.</em></p>
+
+<a href="https://docustruct.streamlit.app/">
+  <img src="https://img.shields.io/badge/🚀%20Live%20Demo-docustruct.streamlit.app-305CDE?style=for-the-badge&logo=streamlit&logoColor=white" alt="Live Demo" />
+</a>
+
+<br/><br/>
+
+`Streamlit` &nbsp;•&nbsp; `EasyOCR` &nbsp;•&nbsp; `SQLite` &nbsp;•&nbsp; `llama.cpp` &nbsp;•&nbsp; `Python 3.10+`
+
+</div>
+
+---
+
 # DocuStruct
 
 DocuStruct is an offline-first, CPU-optimized document pipeline that turns receipt and invoice images into structured, queryable data. It is built for the Local AI hackathon brief: no external APIs, no cloud dependencies, and fully local inference and storage.
