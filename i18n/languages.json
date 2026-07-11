@@ -1,0 +1,74 @@
+{
+  "languages": {
+    "en": {
+      "name": "English",
+      "native_name": "English",
+      "status": "complete",
+      "completion": 100,
+      "region": "Global",
+      "rtl": false
+    },
+    "hi": {
+      "name": "Hindi",
+      "native_name": "हिंदी",
+      "status": "planned",
+      "completion": 0,
+      "region": "India",
+      "rtl": false,
+      "estimated_launch": "Q3 2026"
+    },
+    "ta": {
+      "name": "Tamil",
+      "native_name": "தமிழ்",
+      "status": "planned",
+      "completion": 0,
+      "region": "South India",
+      "rtl": false,
+      "estimated_launch": "Q3 2026"
+    },
+    "te": {
+      "name": "Telugu",
+      "native_name": "తెలుగు",
+      "status": "planned",
+      "completion": 0,
+      "region": "South India",
+      "rtl": false,
+      "estimated_launch": "Q3 2026"
+    },
+    "es": {
+      "name": "Spanish",
+      "native_name": "Español",
+      "status": "planned",
+      "completion": 0,
+      "region": "Latin America",
+      "rtl": false,
+      "estimated_launch": "Q4 2026"
+    },
+    "fr": {
+      "name": "French",
+      "native_name": "Français",
+      "status": "planned",
+      "completion": 0,
+      "region": "Europe",
+      "rtl": false,
+      "estimated_launch": "Q4 2026"
+    },
+    "de": {
+      "name": "German",
+      "native_name": "Deutsch",
+      "status": "planned",
+      "completion": 0,
+      "region": "Europe",
+      "rtl": false,
+      "estimated_launch": "Q4 2026"
+    }
+  },
+  "translation_keys": {
+    "app_title": "DocuStruct - Document Processing",
+    "upload_button": "Upload Receipt",
+    "camera_button": "Camera Capture",
+    "processing": "Processing...",
+    "success": "Successfully extracted",
+    "error": "Error processing document"
+  }
+}
