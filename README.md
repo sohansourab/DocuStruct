@@ -66,6 +66,53 @@ streamlit run streamlit_app.py
 
 The repository also includes a legacy compatibility entrypoint: `streamlit.py` forwards to the same app.
 
+## Deployment & Access URLs
+
+### For Users
+- **Try it locally:** `http://localhost:8501` (see [Installation](#installation) above)
+- **Demo instance:** Coming soon — publicly hosted version for testing
+- **Self-hosted:** Deploy your own using Docker or on your server (see [DEPLOYMENT.md](DEPLOYMENT.md))
+
+### Deployment Options
+Choose based on your user base size and infrastructure:
+
+| Option | URL | Best For | Users |
+|--------|-----|----------|-------|
+| **Local** | `http://localhost:8501` | Developers, individuals | 1-5 |
+| **Shared Server** | `https://docustruct.yourcompany.com` | Teams, SMBs | 5-100 |
+| **Docker/Kubernetes** | `https://api.docustruct.io` | Enterprises, scaling | 100+ |
+| **API-Only** | `https://api.docustruct.io/v1/` | Integrations, mobile apps | N/A |
+
+See **[DEPLOYMENT.md](DEPLOYMENT.md)** for detailed setup instructions for each option.
+
+## Growth & Continuous Improvement
+
+### Roadmap for User Growth
+1. **Phase 1 (Months 1-2):** Foundation — Document deployment, analytics setup
+2. **Phase 2 (Months 3-4):** Community — Public demo, tutorials, Docker release
+3. **Phase 3 (Months 5-6):** Enterprise — SaaS, authentication, premium support
+
+### How We Improve Features
+We use a **feedback-driven development cycle**:
+```
+Collect user feedback → Analyze needs → Prioritize → Implement → Release
+```
+
+**Contribute your ideas:**
+- 📝 Open a [GitHub Issue](https://code.swecha.org/Sohansourab27/docustruct/-/issues) with feature requests
+- 💬 Discuss in [GitHub Discussions](https://code.swecha.org/Sohansourab27/docustruct/-/discussions)
+- 📊 Check our [Future Scope](#future-scope) section below
+
+### Planned Features (Q3-Q4 2026)
+- PDF ingestion support
+- Multilingual OCR (Spanish, French, German)
+- Batch API for bulk document processing
+- CSV/JSONL export formats
+- Advanced analytics dashboard
+- Mobile app support
+
+See full roadmap in [DEPLOYMENT.md → Continuous Feature Improvement](DEPLOYMENT.md#continuous-feature-improvement-process).
+
 ## Contributing
 
 Contributions are welcome. See `CONTRIBUTING.md` for:
@@ -131,3 +178,26 @@ docustruct/
 ├── tests/
 └── samples/
 ```
+
+## Support & Resources
+
+### Documentation
+- **[USER_MANUAL.md](USER_MANUAL.md)** — How to install and use DocuStruct locally
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** — Deployment options, scaling, growth strategy, and user improvement process
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — Developer guide for contributing
+- **[ROADMAP.md](docs/ROADMAP.md)** — Long-term project vision
+
+### Get Help
+- 📖 Read the [USER_MANUAL.md](USER_MANUAL.md) for setup issues
+- 🐛 Report bugs via [GitHub Issues](https://code.swecha.org/Sohansourab27/docustruct/-/issues)
+- 💡 Suggest features via [GitHub Discussions](https://code.swecha.org/Sohansourab27/docustruct/-/discussions)
+- 🤝 Contribute code via [Pull Requests](https://code.swecha.org/Sohansourab27/docustruct/-/merge_requests)
+
+### Community
+- Join discussions to help shape DocuStruct's future
+- Share your use cases and success stories
+- Help test new features and provide feedback
+
+---
+
+**Questions about scaling or deploying DocuStruct? See [DEPLOYMENT.md](DEPLOYMENT.md).**
